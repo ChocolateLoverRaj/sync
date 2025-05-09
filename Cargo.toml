@@ -6,11 +6,13 @@ edition = "2024"
 publish = false
 
 [dependencies]
-iced.version = "*"
+hex = "0.4.3"
 iced.features = ["webgl", "fira-sans"]
-
-# [target.'cfg(target_arch = "wasm32")'.dependencies]
-# iced.features = ["webgl", "fira-sans"]
+iced.version = "*"
+postcard = { version = "1.1.1", features = ["use-std"] }
+serde = { version = "1.0.219", features = ["derive"] }
+tink-core = "0.3.0"
+tink-signature = "0.3.0"
 
 [dev-dependencies]
 iced_test = "*"
