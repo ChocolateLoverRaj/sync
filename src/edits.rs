@@ -33,11 +33,11 @@ pub struct Edit {
 // }
 
 pub struct ExternalEdits {
-    serialized_edits: Vec<u8>,
+    encrypted_serialized_edits: Vec<u8>,
     signature: Vec<u8>,
 }
 
-pub fn get_external_edits(private_key: &Handle) -> ExternalEdits {
+pub fn get_external_edits(encryption_key: &Handle, private_key: &Handle) -> ExternalEdits {
     let signer = tink_signature::new_signer(&private_key).unwrap();
     let edits = HashSet::<Edit>::from_iter([
         Edit {
@@ -56,16 +56,32 @@ pub fn get_external_edits(private_key: &Handle) -> ExternalEdits {
         },
     ]);
     let serialized_edits = postcard::to_allocvec(&edits).unwrap();
+    let a = tink_aead::new(encryption_key).unwrap();
+    let encrypted_edits = a.encrypt(&serialized_edits, Default::default()).unwrap();
     ExternalEdits {
-        signature: signer.sign(&serialized_edits).unwrap(),
-        serialized_edits,
+        signature: signer.sign(&encrypted_edits).unwrap(),
+        encrypted_serialized_edits: encrypted_edits,
     }
 }
 
-pub fn deserialize_edits(public_key: &Handle, external_edits: &ExternalEdits) -> HashSet<Edit> {
+pub fn deserialize_edits(
+    encryption_key: &Handle,
+    public_key: &Handle,
+    external_edits: &ExternalEdits,
+) -> HashSet<Edit> {
     let verifier = tink_signature::new_verifier(&public_key).unwrap();
     verifier
-        .verify(&external_edits.signature, &external_edits.serialized_edits)
+        .verify(
+            &external_edits.signature,
+            &external_edits.encrypted_serialized_edits,
+        )
         .unwrap();
-    postcard::from_bytes(&external_edits.serialized_edits).unwrap()
+    let a = tink_aead::new(encryption_key).unwrap();
+    let serialized_edits = a
+        .decrypt(
+            &external_edits.encrypted_serialized_edits,
+            Default::default(),
+        )
+        .unwrap();
+    postcard::from_bytes(&serialized_edits).unwrap()
 }

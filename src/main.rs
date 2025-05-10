@@ -9,10 +9,12 @@ mod edits;
 
 pub fn main() -> iced::Result {
     tink_signature::init();
+    tink_aead::init();
     iced::run("Sync Demo", Counter::update, Counter::view)
 }
 
 struct Counter {
+    encryption_key: Handle,
     test_private_key: Handle,
     trusted_public_key: Handle,
     user_id: u64,
@@ -24,6 +26,7 @@ impl Default for Counter {
         let test_private_key =
             tink_core::keyset::Handle::new(&tink_signature::ed25519_key_template()).unwrap();
         Self {
+            encryption_key: Handle::new(&tink_aead::aes256_gcm_key_template()).unwrap(),
             trusted_public_key: test_private_key.public().unwrap(),
             test_private_key,
             user_id: 0,
@@ -51,8 +54,13 @@ impl Counter {
                 });
             }
             Message::Import => {
-                let external_edits = get_external_edits(&self.test_private_key);
-                let edits = deserialize_edits(&self.trusted_public_key, &external_edits);
+                let external_edits =
+                    get_external_edits(&self.encryption_key, &self.test_private_key);
+                let edits = deserialize_edits(
+                    &self.encryption_key,
+                    &self.trusted_public_key,
+                    &external_edits,
+                );
                 self.edits.extend(edits);
             }
         }

@@ -6,13 +6,24 @@ edition = "2024"
 publish = false
 
 [dependencies]
+futures = "0.3.31"
 hex = "0.4.3"
 iced.features = ["webgl", "fira-sans"]
 iced.version = "*"
+libp2p = { version = "0.55.0", features = [
+    "identify",
+    "noise",
+    "tcp",
+    "tokio",
+    "yamux",
+] }
 postcard = { version = "1.1.1", features = ["use-std"] }
 serde = { version = "1.0.219", features = ["derive"] }
+tink-aead = "0.3.0"
 tink-core = "0.3.0"
 tink-signature = "0.3.0"
+tokio = { version = "1.45.0", features = ["full"] }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 [dev-dependencies]
 iced_test = "*"
