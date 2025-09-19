@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Manual WebRTC Signaling (Improved)</title>
+    </head>
+    <body>
+        <h1>WebRTC Manual Copy-Paste</h1>
+
+        <h3>Local SDP (Offer or Answer)</h3>
+        <textarea
+            id="local"
+            cols="80"
+            rows="10"
+            placeholder="Local SDP will appear here"
+        ></textarea>
+        <br />
+        <button id="create-offer">Create Offer</button>
+        <button id="accept-offer-create-answer">
+            Accept Offer & Create Answer
+        </button>
+        <button id="accept-answer">Accept Answer</button>
+
+        <h3>Messages</h3>
+        <textarea
+            id="log"
+            cols="80"
+            rows="10"
+            placeholder="Messages will appear here"
+            readonly
+        ></textarea>
+        <br />
+        <button id="send" disabled>Send Message</button>
+
+        <script>
+            let pc = null;
+            let dataChannel = null;
+
+            function log(...args) {
+                const logArea = document.getElementById("log");
+                logArea.value += args.join(" ") + "\n";
+                logArea.scrollTop = logArea.scrollHeight;
+            }
+
+            function ensurePeerConnection() {
+                if (pc) return;
+
+                pc = new RTCPeerConnection({
+                    iceServers: [
+                        // { urls: "stun:stun.relay.metered.ca:80" },
+                        {
+                            urls: "turn:global.relay.metered.ca:80",
+                            username: "2c801684fbae8c102813d6cc",
+                            credential: "dxZEkHdKuvWB0v5Y",
+                        },
+                        {
+                            urls: "turn:global.relay.metered.ca:80?transport=tcp",
+                            username: "2c801684fbae8c102813d6cc",
+                            credential: "dxZEkHdKuvWB0v5Y",
+                        },
+                        {
+                            urls: "turn:global.relay.metered.ca:443",
+                            username: "2c801684fbae8c102813d6cc",
+                            credential: "dxZEkHdKuvWB0v5Y",
+                        },
+                        {
+                            urls: "turns:global.relay.metered.ca:443?transport=tcp",
+                            username: "2c801684fbae8c102813d6cc",
+                            credential: "dxZEkHdKuvWB0v5Y",
+                        },
+                    ],
+                });
+
+                pc.onicecandidate = () => {
+                    if (pc.localDescription) {
+                        document.getElementById("local").value = JSON.stringify(
+                            pc.localDescription,
+                        );
+                    }
+                };
+
+                pc.ondatachannel = (event) => {
+                    dataChannel = event.channel;
+                    setupDataChannel();
+                };
+            }
+
+            function setupDataChannel() {
+                dataChannel.onopen = () => {
+                    log("✅ Data channel opened");
+                    document.getElementById("send").disabled = false;
+                };
+                dataChannel.onclose = () => {
+                    log("⚠️ Data channel closed");
+                    document.getElementById("send").disabled = true;
+                };
+                dataChannel.onmessage = (event) => {
+                    log("📥 Received:", event.data);
+                };
+            }
+
+            document.getElementById("create-offer").onclick = async () => {
+                ensurePeerConnection();
+                dataChannel = pc.createDataChannel("chat");
+                setupDataChannel();
+
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+            };
+
+            document.getElementById("accept-offer-create-answer").onclick =
+                async () => {
+                    ensurePeerConnection();
+                    const remoteOffer = JSON.parse(
+                        document.getElementById("local").value,
+                    );
+                    await pc.setRemoteDescription(
+                        new RTCSessionDescription(remoteOffer),
+                    );
+
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                };
+
+            document.getElementById("accept-answer").onclick = async () => {
+                const remoteAnswer = JSON.parse(
+                    document.getElementById("local").value,
+                );
+                await pc.setRemoteDescription(
+                    new RTCSessionDescription(remoteAnswer),
+                );
+            };
+
+            document.getElementById("send").onclick = () => {
+                const text = prompt("Enter message to send:");
+                if (dataChannel && dataChannel.readyState === "open") {
+                    dataChannel.send(text);
+                    log("📤 Sent:", text);
+                } else {
+                    log("❌ DataChannel not open");
+                }
+            };
+        </script>
+    </body>
+</html>

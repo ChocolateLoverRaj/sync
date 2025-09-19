@@ -7,10 +7,10 @@ use tink_core::keyset::Handle;
 
 mod edits;
 
-pub fn main() -> iced::Result {
+pub fn main() {
     tink_signature::init();
     tink_aead::init();
-    iced::run("Sync Demo", Counter::update, Counter::view)
+    iced::run("Sync Demo", Counter::update, Counter::view).unwrap();
 }
 
 struct Counter {

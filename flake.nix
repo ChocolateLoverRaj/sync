@@ -35,6 +35,9 @@
             targets = [ "wasm32-unknown-unknown" ];
           })
           trunk
+          cargo-lambda
+          pkg-config
+          openssl
         ];
       in {
         devShells.default = pkgs.mkShell {
