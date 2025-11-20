@@ -9,69 +9,45 @@ use uuid::Uuid;
 use crate::file_storage::{
     FileStorageMessage, ReadResponse, WriteRequest, WriteResponse, subscription,
 };
+use crate::queue::{QueueSender, queue};
 
 mod file_storage;
+mod queue;
 
 const SAVE_FILE: &str = "save.ron";
 
 pub fn main() -> iced::Result {
-    let (read_tx, read_rx) = tokio::sync::watch::channel(None);
-    let initial_read_request = Some(1);
-    read_tx.send_replace(initial_read_request);
-    let (write_tx, write_rx) = tokio::sync::watch::channel(None);
+    let (mut read_tx, read_rx) = queue();
+    let initial_read_request = 0;
+    read_tx.send(initial_read_request);
+    let (write_tx, write_rx) = queue();
 
-    iced::application("Sync Demo", Counter::update, Counter::view)
-        // .subscription(|_counter| {
-        //     Subscription::run(|| {
-        //         futures::stream::once(async {
-        //             sleep(Duration::from_secs(2)).await;
-        //             let mut string = String::new();
-        //             OpenOptions::new()
-        //                 .create(true)
-        //                 .read(true)
-        //                 .write(true)
-        //                 .open(SAVE_FILE)
-        //                 .await
-        //                 .unwrap()
-        //                 .read_to_string(&mut string)
-        //                 .await
-        //                 .unwrap();
-        //             let commits = if string.is_empty() {
-        //                 Default::default()
-        //             } else {
-        //                 ron::from_str(&string).unwrap()
-        //             };
-        //             Message::LoadCommits(commits)
-        //         })
-        //     })
-        // })
-        // .subscription(|_| Subscription::subscription(SAVE_FILE, rx))
-        .run_with(move || {
-            (
-                Counter {
-                    commits: Default::default(),
-                    read_sender: read_tx,
-                    last_read_request: initial_read_request,
-                    last_read_response: None,
-                    write_sender: write_tx,
-                    last_write_request: None,
-                    last_write_response: None,
-                },
-                Task::run(
-                    subscription(SAVE_FILE, read_rx, write_rx),
-                    Message::FileStorage,
-                ),
-            )
-        })
+    iced::application("Sync Demo", Counter::update, Counter::view).run_with(move || {
+        (
+            Counter {
+                commits: Default::default(),
+                read_sender: read_tx,
+                last_read_request: Some(initial_read_request),
+                last_read_response: None,
+                write_sender: write_tx,
+                last_write_request: None,
+                last_write_response: None,
+            },
+            Task::run(
+                subscription(SAVE_FILE, read_rx, write_rx),
+                Message::FileStorage,
+            ),
+        )
+    })
 }
 
 #[derive(Debug)]
 struct Counter {
     commits: HashSet<Commit<i64>>,
-    read_sender: tokio::sync::watch::Sender<Option<usize>>,
+    read_sender: QueueSender<usize>,
     last_read_request: Option<usize>,
     last_read_response: Option<ReadResponse>,
-    write_sender: tokio::sync::watch::Sender<Option<WriteRequest>>,
+    write_sender: QueueSender<WriteRequest>,
     last_write_request: Option<usize>,
     last_write_response: Option<WriteResponse>,
 }
@@ -106,13 +82,16 @@ impl Counter {
         match message {
             Message::Update(change) => {
                 self.commits.insert(Commit::new(change));
-                let request_id = self.last_write_request.unwrap_or_default() + 1;
+                let request_id = match self.last_write_request {
+                    Some(id) => id + 1,
+                    None => 0,
+                };
                 self.last_write_request = Some(request_id);
-                self.write_sender.send_replace(Some(WriteRequest {
+                self.write_sender.send(WriteRequest {
                     id: request_id,
                     contents: ron::ser::to_string_pretty(&self.commits, Default::default())
                         .unwrap(),
-                }));
+                });
             }
             Message::FileStorage(response) => match response {
                 FileStorageMessage::Read(response) => {
