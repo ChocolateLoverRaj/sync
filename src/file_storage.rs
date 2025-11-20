@@ -10,8 +10,6 @@ use tokio::{
     time::sleep,
 };
 
-use crate::queue::QueueReceiver;
-
 #[derive(Debug, Clone)]
 pub struct WriteRequest {
     pub id: usize,
@@ -38,8 +36,8 @@ pub enum FileStorageMessage {
 
 pub fn subscription(
     path: impl AsRef<Path> + Send + Sync,
-    mut read_receiver: QueueReceiver<usize>,
-    mut write_receiver: QueueReceiver<WriteRequest>,
+    mut read_receiver: flume::Receiver<usize>,
+    mut write_receiver: flume::Receiver<WriteRequest>,
 ) -> impl Stream<Item = FileStorageMessage> + Send {
     stream::channel(1000, async move |mut output| {
         loop {
@@ -48,8 +46,8 @@ pub fn subscription(
                 Write(WriteRequest),
             }
             let request = tokio::select! {
-                read_request = read_receiver.recv() => Request::Read(read_request),
-                write_request = write_receiver.recv() => Request::Write(write_request),
+                read_request = read_receiver.recv_async() => Request::Read(read_request.unwrap()),
+                write_request = write_receiver.recv_async() => Request::Write(write_request.unwrap()),
             };
             match request {
                 Request::Read(id) => {

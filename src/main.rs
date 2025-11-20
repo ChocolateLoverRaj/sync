@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::ops::Deref;
 
+use flume_overwrite::OverwriteSender;
 use iced::widget::{Column, button, column, text};
 use iced::{Center, Task};
 use serde::{Deserialize, Serialize};
@@ -9,18 +10,16 @@ use uuid::Uuid;
 use crate::file_storage::{
     FileStorageMessage, ReadResponse, WriteRequest, WriteResponse, subscription,
 };
-use crate::queue::{QueueSender, queue};
 
 mod file_storage;
-mod queue;
 
 const SAVE_FILE: &str = "save.ron";
 
 pub fn main() -> iced::Result {
-    let (mut read_tx, read_rx) = queue();
+    let (read_tx, read_rx) = flume_overwrite::bounded(1);
     let initial_read_request = 0;
-    read_tx.send(initial_read_request);
-    let (write_tx, write_rx) = queue();
+    read_tx.send_overwrite(initial_read_request).unwrap();
+    let (write_tx, write_rx) = flume_overwrite::bounded(1);
 
     iced::application("Sync Demo", Counter::update, Counter::view).run_with(move || {
         (
@@ -41,13 +40,13 @@ pub fn main() -> iced::Result {
     })
 }
 
-#[derive(Debug)]
+// #[derive(Debug)]
 struct Counter {
     commits: HashSet<Commit<i64>>,
-    read_sender: QueueSender<usize>,
+    read_sender: OverwriteSender<usize>,
     last_read_request: Option<usize>,
     last_read_response: Option<ReadResponse>,
-    write_sender: QueueSender<WriteRequest>,
+    write_sender: OverwriteSender<WriteRequest>,
     last_write_request: Option<usize>,
     last_write_response: Option<WriteResponse>,
 }
@@ -87,11 +86,13 @@ impl Counter {
                     None => 0,
                 };
                 self.last_write_request = Some(request_id);
-                self.write_sender.send(WriteRequest {
-                    id: request_id,
-                    contents: ron::ser::to_string_pretty(&self.commits, Default::default())
-                        .unwrap(),
-                });
+                self.write_sender
+                    .send_overwrite(WriteRequest {
+                        id: request_id,
+                        contents: ron::ser::to_string_pretty(&self.commits, Default::default())
+                            .unwrap(),
+                    })
+                    .unwrap();
             }
             Message::FileStorage(response) => match response {
                 FileStorageMessage::Read(response) => {
