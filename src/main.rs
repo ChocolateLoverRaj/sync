@@ -12,6 +12,7 @@ use crate::file_storage::{
 };
 
 mod file_storage;
+mod state;
 
 const SAVE_FILE: &str = "save.ron";
 
@@ -89,16 +90,14 @@ impl Counter {
                 self.write_sender
                     .send_overwrite(WriteRequest {
                         id: request_id,
-                        contents: ron::ser::to_string_pretty(&self.commits, Default::default())
-                            .unwrap(),
+                        contents: self.commits.clone(),
                     })
                     .unwrap();
             }
             Message::FileStorage(response) => match response {
                 FileStorageMessage::Read(response) => {
-                    if let Ok(string) = response.result.deref() {
-                        self.commits
-                            .extend(ron::from_str::<HashSet<_>>(string).unwrap());
+                    if let Ok(commits) = response.result.deref() {
+                        self.commits.extend(commits.iter().cloned());
                     }
                     self.last_read_response = Some(response);
                 }
