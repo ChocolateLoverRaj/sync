@@ -342,4 +342,4 @@ Areas to improve on:
 - Don't rewrite the entire file on every edit
 - Support Web
 - Handle errors (including retry)
-
+- Make editing available before the previous changes are completely loaded, and make it so that you don't delete previous changes when editing before previous changes are loaded
