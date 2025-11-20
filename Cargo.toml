@@ -1,19 +1,12 @@
 [package]
 name = "counter"
 version = "0.1.0"
-authors = ["Héctor Ramón Jiménez <hector0193@gmail.com>"]
 edition = "2024"
 publish = false
 
 [dependencies]
-iced.features = ["webgl", "fira-sans"]
-iced.version = "*"
-postcard = { version = "1.1.1", features = ["use-std"] }
-serde = { version = "1.0.219", features = ["derive"] }
-tink-aead = "0.3.0"
-tink-core = "0.3.0"
-tink-signature = "0.3.0"
-getrandom = { version = "^0.2.8", features = ["js"] }
-
-[dev-dependencies]
-iced_test = "*"
+iced = { version = "0.13.1", features = ["webgl", "fira-sans", "tokio"] }
+ron = "0.12.0"
+serde = { version = "1.0.228", features = ["derive"] }
+tokio = { version = "1.48.0", features = ["fs", "io-util"] }
+uuid = { version = "1.18.1", features = ["serde", "v4"] }

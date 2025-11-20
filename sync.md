@@ -27,7 +27,7 @@ However, there is no perfect app, besides some text editors, I guess. In my opin
 ## Basic Counter App
 Imagine an app which just has a counter and a button, and every time you press the button the counter increases by 1. The counter is a `u64`.
 ```rs
-struct Data(u64)
+struct Data(u64);
 ```
 
 ## Storing the counter
@@ -298,3 +298,48 @@ Now imagine decreasing the quantity of an item. The edit can be represented as
 - Editing a specific item in the list
 - Editing the quantity field
 - Change the quantity by -1
+
+# Layers
+## UI
+Responsible for handling input, which changes state, and updating the UI when the state is changed (can also be changed externally). UI rendering is its own challenge and there are many libraries that help you make graphical apps. For now, I will just used `iced` because it seems to be the most popular one. That's what COSMIC Desktop uses.
+
+## Synchronization
+Handles synchronizing with any servers or other nodes.
+
+## Client Discovery
+Discovers other clients.
+
+## Transport
+Can directly connect to other clients through WebRTC, connect through a server, etc.
+
+## Saving to a file
+
+# A simple start
+A single computer app that has a `i64` counter that can be incremented or decremented using buttons. Does not save or synchronize at all.
+
+# Features that don't need CRDTs
+- Saving to disk
+
+# Using Commits
+```rs
+#[derive(Debug, Default)]
+struct Counter {
+    commits: HashSet<Commit<i64>>,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq)]
+struct Commit<T> {
+    id: Uuid,
+    data: T,
+}
+```
+Immediately we have a problem / thing to optimize for: commits should be merged to reduce the number of commits.
+
+# Saving commits to file
+We could do this: use `serde` to serialize the entire state (currently a list of commits), and update the entire contents of the file.
+
+Areas to improve on:
+- Don't rewrite the entire file on every edit
+- Support Web
+- Handle errors (including retry)
+

@@ -1,79 +1,114 @@
 use std::collections::HashSet;
+use std::time::Duration;
 
-use edits::{Edit, EditId, deserialize_edits, get_external_edits};
-use iced::Center;
 use iced::widget::{Column, button, column, text};
-use tink_core::keyset::Handle;
+use iced::{Center, Subscription, futures};
+use serde::{Deserialize, Serialize};
+use tokio::fs::OpenOptions;
+use tokio::io::AsyncReadExt;
+use tokio::time::sleep;
+use uuid::Uuid;
 
-mod edits;
+mod file_storage;
 
-pub fn main() {
-    tink_signature::init();
-    tink_aead::init();
-    iced::run("Sync Demo", Counter::update, Counter::view).unwrap();
+const SAVE_FILE: &str = "save.ron";
+
+pub fn main() -> iced::Result {
+    iced::application("Sync Demo", Counter::update, Counter::view)
+        .subscription(|_counter| {
+            Subscription::run(|| {
+                futures::stream::once(async {
+                    sleep(Duration::from_secs(2)).await;
+                    let mut string = String::new();
+                    OpenOptions::new()
+                        .create(true)
+                        .read(true)
+                        .write(true)
+                        .open(SAVE_FILE)
+                        .await
+                        .unwrap()
+                        .read_to_string(&mut string)
+                        .await
+                        .unwrap();
+                    let commits = if string.is_empty() {
+                        Default::default()
+                    } else {
+                        ron::from_str(&string).unwrap()
+                    };
+                    Message::LoadCommits(commits)
+                })
+            })
+        })
+        .run()
 }
 
+#[derive(Debug, Default, Serialize, Deserialize)]
 struct Counter {
-    encryption_key: Handle,
-    test_private_key: Handle,
-    trusted_public_key: Handle,
-    user_id: u64,
-    edits: HashSet<Edit>,
+    commits: HashSet<Commit<i64>>,
+    loaded: bool,
 }
 
-impl Default for Counter {
-    fn default() -> Self {
-        let test_private_key =
-            tink_core::keyset::Handle::new(&tink_signature::ed25519_key_template()).unwrap();
+#[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Clone)]
+struct Commit<T> {
+    id: Uuid,
+    data: T,
+}
+
+impl<T> Commit<T> {
+    pub fn new(data: T) -> Self {
         Self {
-            encryption_key: Handle::new(&tink_aead::aes256_gcm_key_template()).unwrap(),
-            trusted_public_key: test_private_key.public().unwrap(),
-            test_private_key,
-            user_id: 0,
-            edits: Default::default(),
+            id: Uuid::new_v4(),
+            data,
         }
+    }
+
+    pub fn data(&self) -> &T {
+        &self.data
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum Message {
-    Change(i64),
-    Import,
+    Update(i64),
+    LoadCommits(HashSet<Commit<i64>>),
 }
 
 impl Counter {
     fn update(&mut self, message: Message) {
         match message {
-            Message::Change(change) => {
-                self.edits.insert(Edit {
-                    id: EditId {
-                        user_id: self.user_id,
-                        counter: self.edits.len(),
-                    },
-                    change,
-                });
+            Message::Update(change) => {
+                self.commits.insert(Commit::new(change));
             }
-            Message::Import => {
-                let external_edits =
-                    get_external_edits(&self.encryption_key, &self.test_private_key);
-                let edits = deserialize_edits(
-                    &self.encryption_key,
-                    &self.trusted_public_key,
-                    &external_edits,
-                );
-                self.edits.extend(edits);
+            Message::LoadCommits(commits) => {
+                self.commits.extend(commits);
+                self.loaded = true;
             }
         }
+        // write(
+        //     SAVE_FILE,
+        //     ron::ser::to_string_pretty(&self, Default::default()).unwrap(),
+        // )
+        // .unwrap();
     }
 
     fn view(&self) -> Column<Message> {
-        // println!("Commits: {:#?}", self.commits);
-        let number = self.edits.iter().fold(0, |acc, commit| acc + commit.change);
+        let number_of_commits = self.commits.len();
         column![
-            button("Increment").on_press(Message::Change(1)),
-            text(number).size(50),
-            button("Decrement").on_press(Message::Change(-1)),
-            button("Import").on_press(Message::Import)
+            button("Increment").on_press(Message::Update(1)),
+            text(
+                self.commits
+                    .iter()
+                    .map(|commit| *commit.data())
+                    .sum::<i64>()
+            )
+            .size(50),
+            button("Decrement").on_press(Message::Update(-1)),
+            text(format!("Number of commits: {number_of_commits}")),
+            text(if !self.loaded {
+                "Loading from file"
+            } else {
+                "Loaded from file"
+            }),
         ]
         .padding(20)
         .align_x(Center)
