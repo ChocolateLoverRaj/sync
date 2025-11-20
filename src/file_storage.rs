@@ -13,6 +13,19 @@ use tokio::{
 use crate::Commit;
 
 #[derive(Debug, Clone)]
+pub struct ReadResponse {
+    pub id: usize,
+    pub result: Arc<Result<HashSet<Commit<i64>>, ReadError>>,
+}
+
+#[derive(Debug)]
+pub enum ReadError {
+    Open(io::Error),
+    Read(io::Error),
+    Deserialize(ron::de::SpannedError),
+}
+
+#[derive(Debug, Clone)]
 pub struct WriteRequest {
     pub id: usize,
     pub contents: HashSet<Commit<i64>>,
@@ -21,13 +34,14 @@ pub struct WriteRequest {
 #[derive(Debug, Clone)]
 pub struct WriteResponse {
     pub id: usize,
-    pub result: Arc<Result<(), io::Error>>,
+    pub result: Arc<Result<(), WriteError>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct ReadResponse {
-    pub id: usize,
-    pub result: Arc<Result<HashSet<Commit<i64>>, io::Error>>,
+#[derive(Debug)]
+pub enum WriteError {
+    Read(ReadError),
+    Write(io::Error),
+    Serialize(ron::Error),
 }
 
 #[derive(Debug, Clone)]
@@ -42,7 +56,7 @@ pub fn subscription(
     write_receiver: flume::Receiver<WriteRequest>,
 ) -> impl Stream<Item = FileStorageMessage> + Send {
     stream::channel(1000, async move |mut output| {
-        let try_load = async || {
+        let try_load = async |loaded: &mut bool| {
             sleep(Duration::from_secs(2)).await;
             let mut string = String::new();
             OpenOptions::new()
@@ -50,15 +64,32 @@ pub fn subscription(
                 .read(true)
                 .write(true)
                 .open(&path)
-                .await?
+                .await
+                .map_err(ReadError::Open)?
                 .read_to_string(&mut string)
-                .await?;
+                .await
+                .map_err(ReadError::Read)?;
             let commits = if string.is_empty() {
                 Default::default()
             } else {
-                ron::from_str(&string).unwrap()
+                ron::from_str(&string).map_err(ReadError::Deserialize)?
             };
+            *loaded = true;
             Ok(commits)
+        };
+        let try_write = async |mut contents: HashSet<Commit<i64>>, loaded: &mut bool| {
+            if !*loaded {
+                contents.extend(try_load(loaded).await.map_err(WriteError::Read)?);
+            }
+            sleep(Duration::from_secs(3)).await;
+            write(
+                &path,
+                ron::ser::to_string_pretty(&contents, Default::default())
+                    .map_err(WriteError::Serialize)?,
+            )
+            .await
+            .map_err(WriteError::Write)?;
+            Ok(())
         };
         let mut loaded = false;
         loop {
@@ -76,29 +107,17 @@ pub fn subscription(
                         output
                             .send(FileStorageMessage::Read(ReadResponse {
                                 id,
-                                result: Arc::new(try_load().await),
+                                result: Arc::new(try_load(&mut loaded).await),
                             }))
                             .await
                             .unwrap();
                     }
                 }
-                Request::Write(WriteRequest { id, mut contents }) => {
-                    if !loaded {
-                        contents.extend(try_load().await.unwrap());
-                        loaded = true;
-                    }
-                    sleep(Duration::from_secs(3)).await;
+                Request::Write(WriteRequest { id, contents }) => {
                     output
                         .send(FileStorageMessage::Write(WriteResponse {
                             id,
-                            result: Arc::new(
-                                write(
-                                    &path,
-                                    ron::ser::to_string_pretty(&contents, Default::default())
-                                        .unwrap(),
-                                )
-                                .await,
-                            ),
+                            result: Arc::new(try_write(contents, &mut loaded).await),
                         }))
                         .await
                         .unwrap();
