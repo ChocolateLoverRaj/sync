@@ -1,9 +1,5 @@
-use std::{collections::HashSet, path::Path, sync::Arc, time::Duration};
+use std::{collections::HashSet, path::Path, time::Duration};
 
-use iced::{
-    futures::{SinkExt, Stream},
-    stream,
-};
 use tokio::{
     fs::OpenOptions,
     io::{self, AsyncReadExt},
@@ -12,12 +8,7 @@ use tokio::{
 
 use crate::commit::Commit;
 
-#[derive(Debug, Clone)]
-pub struct ReadResponse {
-    pub id: usize,
-    pub result: Arc<Result<HashSet<Commit<i64>>, ReadError>>,
-}
-
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum ReadError {
     Open(io::Error),
@@ -25,29 +16,11 @@ pub enum ReadError {
     Deserialize(ron::de::SpannedError),
 }
 
-#[derive(Debug, Clone)]
-pub struct WriteRequest {
-    pub id: usize,
-    pub contents: HashSet<Commit<i64>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct WriteResponse {
-    pub id: usize,
-    pub result: Arc<Result<(), WriteError>>,
-}
-
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum WriteError {
-    Read(ReadError),
     Write(io::Error),
     Serialize(ron::Error),
-}
-
-#[derive(Debug, Clone)]
-pub enum FileStorageMessage {
-    Read(ReadResponse),
-    Write(WriteResponse),
 }
 
 pub async fn read(path: impl AsRef<Path>) -> Result<HashSet<Commit<i64>>, ReadError> {
