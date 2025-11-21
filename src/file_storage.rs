@@ -5,7 +5,7 @@ use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt},
 };
 
-use crate::commit::Commit;
+use crate::commit::{Commit, Crdt};
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -25,7 +25,9 @@ pub enum WriteError {
     Serialize(ron::Error),
 }
 
-pub async fn read(path: impl AsRef<Path>) -> Result<HashSet<Commit<i64>>, ReadError> {
+pub async fn read<T: Crdt>(
+    path: impl AsRef<Path>,
+) -> Result<HashSet<Commit<T::CommitData>>, ReadError> {
     // sleep(Duration::from_secs(2)).await;
     let mut string = String::new();
     OpenOptions::new()
@@ -46,10 +48,10 @@ pub async fn read(path: impl AsRef<Path>) -> Result<HashSet<Commit<i64>>, ReadEr
     Ok(commits)
 }
 
-pub async fn write(
+pub async fn write<T: Crdt>(
     path: impl AsRef<Path>,
     temp_path: impl AsRef<Path>,
-    contents: &HashSet<Commit<i64>>,
+    contents: &HashSet<Commit<T::CommitData>>,
 ) -> Result<(), WriteError> {
     // sleep(Duration::from_secs(2)).await;
     // In order for the write to be atomic, we have to follow these steps

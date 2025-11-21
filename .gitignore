@@ -18,4 +18,5 @@ target/
 
 .direnv
 dist
+/.save.ron
 /save.ron

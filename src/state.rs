@@ -8,12 +8,12 @@ use id_factory::untyped::{Id, IdFactory};
 use tokio::{select, sync::Mutex};
 
 use crate::{
-    commit::Commit,
+    commit::{Commit, Crdt},
     file_storage::{ReadError, WriteError, read, write},
 };
 
-pub struct State {
-    commits: HashSet<Commit<i64>>,
+pub struct State<T: Crdt> {
+    commits: HashSet<Commit<T::CommitData>>,
     paths: Arc<Mutex<Paths>>,
     load_status: LoadStatus,
     save_id_factory: IdFactory,
@@ -21,12 +21,12 @@ pub struct State {
 }
 
 #[derive(Debug, Clone)]
-pub enum Message {
+pub enum Message<T: Crdt> {
     Load,
-    LoadResult(Result<Arc<HashSet<Commit<i64>>>, Arc<ReadError>>),
+    LoadResult(Result<Arc<HashSet<Commit<T::CommitData>>>, Arc<ReadError>>),
     Save,
     SaveResult(SaveResult),
-    Change(i64),
+    Commit(T::CommitData),
 }
 
 #[derive(Debug, Clone)]
@@ -68,7 +68,7 @@ pub struct Paths {
     pub temp_file: PathBuf,
 }
 
-impl State {
+impl<T: Crdt> State<T> {
     // new
     pub fn new(paths: Paths) -> Self {
         Self {
@@ -80,14 +80,14 @@ impl State {
         }
     }
 
-    fn update_load(&mut self) -> Task<Message> {
+    fn update_load(&mut self) -> Task<Message<T>> {
         match &self.load_status {
             LoadStatus::NotLoaded(_) => {
                 self.load_status = LoadStatus::Loading;
                 let paths = self.paths.clone();
                 Task::future(async move {
                     Message::LoadResult(
-                        read(paths.lock().await.file.deref())
+                        read::<T>(paths.lock().await.file.deref())
                             .await
                             .map(Arc::new)
                             .map_err(Arc::new),
@@ -98,7 +98,7 @@ impl State {
         }
     }
 
-    fn update_save(&mut self) -> Task<Message> {
+    fn update_save(&mut self) -> Task<Message<T>> {
         match self.load_status {
             LoadStatus::NotLoaded(_) => {
                 self.save_status = SaveStatus::WaitingForLoad;
@@ -127,9 +127,13 @@ impl State {
                         }?;
                         Some(Message::SaveResult(SaveResult {
                             id,
-                            result: write(paths.file.deref(), paths.temp_file.deref(), &commits)
-                                .await
-                                .map_err(Arc::new),
+                            result: write::<T>(
+                                paths.file.deref(),
+                                paths.temp_file.deref(),
+                                &commits,
+                            )
+                            .await
+                            .map_err(Arc::new),
                         }))
                     }
                     .into_stream()
@@ -140,7 +144,7 @@ impl State {
     }
 
     // update
-    pub fn update(&mut self, message: Message) -> Task<Message> {
+    pub fn update(&mut self, message: Message<T>) -> Task<Message<T>> {
         match message {
             Message::Load => self.update_load(),
             Message::LoadResult(result) => match result {
@@ -174,7 +178,7 @@ impl State {
                 }
                 Task::none()
             }
-            Message::Change(change) => {
+            Message::Commit(change) => {
                 self.commits.insert(Commit::new(change));
                 self.update_save()
             }
@@ -182,8 +186,8 @@ impl State {
     }
 
     // used in the `view` fn to show data
-    pub fn value(&self) -> i64 {
-        self.commits.iter().map(|commit| *commit.data()).sum()
+    pub fn value(&self) -> T::Value {
+        T::compute(self.commits.iter().map(|commit| *commit.data()))
     }
 
     pub fn commits_len(&self) -> usize {
@@ -199,15 +203,15 @@ impl State {
     }
 
     // used in the `view` fn to do actions
-    pub fn change(&self, change: i64) -> Message {
-        Message::Change(change)
+    pub fn change(&self, change: T::CommitData) -> Message<T> {
+        Message::Commit(change)
     }
 
-    pub fn load(&self) -> Message {
+    pub fn load(&self) -> Message<T> {
         Message::Load
     }
 
-    pub fn save(&self) -> Message {
+    pub fn save(&self) -> Message<T> {
         Message::Save
     }
 }

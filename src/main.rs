@@ -1,9 +1,12 @@
 use iced::Center;
 use iced::widget::{Column, button, column, row, text};
 
+use crate::commit::ViewCrdt;
+use crate::counter::CounterCrdt;
 use crate::state::*;
 
 mod commit;
+mod counter;
 mod file_storage;
 mod state;
 
@@ -11,7 +14,7 @@ const SAVE_FILE: &str = "save.ron";
 const SAVE_FILE_TEMP: &str = ".save.ron";
 
 pub fn main() -> iced::Result {
-    iced::application("Sync Demo", State::update, view).run_with(move || {
+    iced::application("Sync Demo", State::<CounterCrdt>::update, view).run_with(move || {
         let mut state = State::new(Paths {
             file: SAVE_FILE.into(),
             temp_file: SAVE_FILE_TEMP.into(),
@@ -21,15 +24,9 @@ pub fn main() -> iced::Result {
     })
 }
 
-fn view(state: &State) -> Column<'_, Message> {
+fn view<T: ViewCrdt>(state: &State<T>) -> Column<'_, Message<T>> {
     column![
-        column![
-            button("Increment").on_press(state.change(1)),
-            text(state.value()).size(50),
-            button("Decrement").on_press(state.change(-1))
-        ]
-        .padding(20)
-        .align_x(Center),
+        T::view(state).into(),
         text(format!("Number of commits: {}", state.commits_len())),
         match state.load_status() {
             LoadStatus::NotLoaded(None) => row![text("Data not loaded from file for some reason")],

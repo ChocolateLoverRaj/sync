@@ -317,10 +317,7 @@ Can directly connect to other clients through WebRTC, connect through a server, 
 # A simple start
 A single computer app that has a `i64` counter that can be incremented or decremented using buttons. Does not save or synchronize at all.
 
-# Features that don't need CRDTs
-- Saving to disk
-
-# Using Commits
+## Using Commits
 ```rs
 #[derive(Debug, Default)]
 struct Counter {
@@ -335,7 +332,7 @@ struct Commit<T> {
 ```
 Immediately we have a problem / thing to optimize for: commits should be merged to reduce the number of commits.
 
-# Saving commits to file
+## Saving commits to file
 We could do this: use `serde` to serialize the entire state (currently a list of commits), and update the entire contents of the file.
 
 Areas to improve on:
@@ -343,3 +340,13 @@ Areas to improve on:
 - Support Web
 - Handle errors (including retry)
 - Make editing available before the previous changes are completely loaded, and make it so that you don't delete previous changes when editing before previous changes are loaded
+
+## A more complex CRDT
+- Let's create a grow-only `Set<String>` where strings cannot be edited once added
+
+## Merging commits
+There are some performance related things to consider
+- What is the performance impact of merging commits?
+- How often should commits be merged?
+
+But let's worry about that later. It's really easy merging commits for our `i64` counter. Just add up their changes to get a combined change.
