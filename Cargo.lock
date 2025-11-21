@@ -675,6 +675,7 @@ dependencies = [
  "flume",
  "flume-overwrite",
  "iced",
+ "id_factory",
  "ron",
  "serde",
  "tokio",
@@ -1600,6 +1601,12 @@ dependencies = [
  "window_clipboard",
  "winit",
 ]
+
+[[package]]
+name = "id_factory"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8193497abdeb21b8b78f8299de9a181c080ab974965cfbd9ab8daeadfe9e044a"
 
 [[package]]
 name = "indexmap"

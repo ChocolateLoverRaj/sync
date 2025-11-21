@@ -5,12 +5,12 @@ use iced::{
     stream,
 };
 use tokio::{
-    fs::{OpenOptions, write},
+    fs::OpenOptions,
     io::{self, AsyncReadExt},
     time::sleep,
 };
 
-use crate::Commit;
+use crate::commit::Commit;
 
 #[derive(Debug, Clone)]
 pub struct ReadResponse {
@@ -50,79 +50,37 @@ pub enum FileStorageMessage {
     Write(WriteResponse),
 }
 
-pub fn subscription(
-    path: impl AsRef<Path> + Send + Sync,
-    read_receiver: flume::Receiver<usize>,
-    write_receiver: flume::Receiver<WriteRequest>,
-) -> impl Stream<Item = FileStorageMessage> + Send {
-    stream::channel(1000, async move |mut output| {
-        let try_load = async |loaded: &mut bool| {
-            sleep(Duration::from_secs(2)).await;
-            let mut string = String::new();
-            OpenOptions::new()
-                .create(true)
-                .read(true)
-                .write(true)
-                .open(&path)
-                .await
-                .map_err(ReadError::Open)?
-                .read_to_string(&mut string)
-                .await
-                .map_err(ReadError::Read)?;
-            let commits = if string.is_empty() {
-                Default::default()
-            } else {
-                ron::from_str(&string).map_err(ReadError::Deserialize)?
-            };
-            *loaded = true;
-            Ok(commits)
-        };
-        let try_write = async |mut contents: HashSet<Commit<i64>>, loaded: &mut bool| {
-            if !*loaded {
-                contents.extend(try_load(loaded).await.map_err(WriteError::Read)?);
-            }
-            sleep(Duration::from_secs(3)).await;
-            write(
-                &path,
-                ron::ser::to_string_pretty(&contents, Default::default())
-                    .map_err(WriteError::Serialize)?,
-            )
-            .await
-            .map_err(WriteError::Write)?;
-            Ok(())
-        };
-        let mut loaded = false;
-        loop {
-            enum Request {
-                Read(usize),
-                Write(WriteRequest),
-            }
-            let request = tokio::select! {
-                read_request = read_receiver.recv_async() => Request::Read(read_request.unwrap()),
-                write_request = write_receiver.recv_async() => Request::Write(write_request.unwrap()),
-            };
-            match request {
-                Request::Read(id) => {
-                    if !loaded {
-                        output
-                            .send(FileStorageMessage::Read(ReadResponse {
-                                id,
-                                result: Arc::new(try_load(&mut loaded).await),
-                            }))
-                            .await
-                            .unwrap();
-                    }
-                }
-                Request::Write(WriteRequest { id, contents }) => {
-                    output
-                        .send(FileStorageMessage::Write(WriteResponse {
-                            id,
-                            result: Arc::new(try_write(contents, &mut loaded).await),
-                        }))
-                        .await
-                        .unwrap();
-                }
-            }
-        }
-    })
+pub async fn read(path: impl AsRef<Path>) -> Result<HashSet<Commit<i64>>, ReadError> {
+    sleep(Duration::from_secs(2)).await;
+    let mut string = String::new();
+    OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(path)
+        .await
+        .map_err(ReadError::Open)?
+        .read_to_string(&mut string)
+        .await
+        .map_err(ReadError::Read)?;
+    let commits = if string.is_empty() {
+        Default::default()
+    } else {
+        ron::from_str(&string).map_err(ReadError::Deserialize)?
+    };
+    Ok(commits)
+}
+
+pub async fn write(
+    path: impl AsRef<Path>,
+    contents: &HashSet<Commit<i64>>,
+) -> Result<(), WriteError> {
+    sleep(Duration::from_secs(2)).await;
+    tokio::fs::write(
+        &path,
+        ron::ser::to_string_pretty(&contents, Default::default()).map_err(WriteError::Serialize)?,
+    )
+    .await
+    .map_err(WriteError::Write)?;
+    Ok(())
 }
