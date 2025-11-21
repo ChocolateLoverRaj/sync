@@ -14,7 +14,7 @@ use crate::{
 
 pub struct State {
     commits: HashSet<Commit<i64>>,
-    path: Arc<Mutex<PathBuf>>,
+    paths: Arc<Mutex<Paths>>,
     load_status: LoadStatus,
     save_id_factory: IdFactory,
     save_status: SaveStatus,
@@ -62,12 +62,18 @@ pub enum SaveError {
     WriteError(Arc<WriteError>),
 }
 
+#[derive(Debug)]
+pub struct Paths {
+    pub file: PathBuf,
+    pub temp_file: PathBuf,
+}
+
 impl State {
     // new
-    pub fn new(path: PathBuf) -> Self {
+    pub fn new(paths: Paths) -> Self {
         Self {
             commits: Default::default(),
-            path: Arc::new(path.into()),
+            paths: Arc::new(paths.into()),
             load_status: LoadStatus::NotLoaded(None),
             save_id_factory: Default::default(),
             save_status: SaveStatus::NotSaving(None),
@@ -78,10 +84,10 @@ impl State {
         match &self.load_status {
             LoadStatus::NotLoaded(_) => {
                 self.load_status = LoadStatus::Loading;
-                let path = self.path.clone();
+                let paths = self.paths.clone();
                 Task::future(async move {
                     Message::LoadResult(
-                        read(path.lock().await.deref())
+                        read(paths.lock().await.file.deref())
                             .await
                             .map(Arc::new)
                             .map_err(Arc::new),
@@ -112,16 +118,18 @@ impl State {
                     let _ = saving_data.cancel.send(());
                 };
                 let commits = self.commits.clone();
-                let path = self.path.clone();
+                let paths = self.paths.clone();
                 Task::stream(
                     async move {
-                        let path = select! {
+                        let paths = select! {
                             _ = rx => None,
-                            path = path.lock() => Some(path)
+                            path = paths.lock() => Some(path)
                         }?;
                         Some(Message::SaveResult(SaveResult {
                             id,
-                            result: write(path.deref(), &commits).await.map_err(Arc::new),
+                            result: write(paths.file.deref(), paths.temp_file.deref(), &commits)
+                                .await
+                                .map_err(Arc::new),
                         }))
                     }
                     .into_stream()

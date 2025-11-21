@@ -8,10 +8,14 @@ mod file_storage;
 mod state;
 
 const SAVE_FILE: &str = "save.ron";
+const SAVE_FILE_TEMP: &str = ".save.ron";
 
 pub fn main() -> iced::Result {
     iced::application("Sync Demo", State::update, view).run_with(move || {
-        let mut state = State::new(SAVE_FILE.into());
+        let mut state = State::new(Paths {
+            file: SAVE_FILE.into(),
+            temp_file: SAVE_FILE_TEMP.into(),
+        });
         let task = state.update(state.load());
         (state, task)
     })
