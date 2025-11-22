@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use iced::{Element, Renderer, Theme, application::View};
+use iced::{Element, Renderer, Theme};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -23,23 +23,4 @@ impl<T> Commit<T> {
     pub fn data(&self) -> &T {
         &self.data
     }
-}
-
-pub trait Crdt: 'static + Clone + Copy {
-    type CommitData: Clone
-        + Copy
-        + Hash
-        + PartialEq
-        + Eq
-        + Send
-        + Sync
-        + Serialize
-        + for<'a> Deserialize<'a>;
-    type Value;
-
-    fn compute<T: Iterator<Item = Self::CommitData>>(iter: T) -> Self::Value;
-}
-
-pub trait ViewCrdt: Crdt {
-    fn view<'a>(state: &'a State<Self>) -> impl Into<Element<'a, Message<Self>, Theme, Renderer>>;
 }

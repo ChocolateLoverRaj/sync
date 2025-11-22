@@ -7,10 +7,8 @@ use iced::{
 use id_factory::untyped::{Id, IdFactory};
 use tokio::{select, sync::Mutex};
 
-use crate::{
-    commit::{Commit, Crdt},
-    file_storage::{ReadError, WriteError, read, write},
-};
+use crate::file_storage::*;
+use crate::*;
 
 pub struct State<T: Crdt> {
     commits: HashSet<Commit<T::CommitData>>,
@@ -187,7 +185,7 @@ impl<T: Crdt> State<T> {
 
     // used in the `view` fn to show data
     pub fn value(&self) -> T::Value {
-        T::compute(self.commits.iter().map(|commit| *commit.data()))
+        T::compute(self.commits.iter().map(|commit| commit.data()))
     }
 
     pub fn commits_len(&self) -> usize {
@@ -203,7 +201,7 @@ impl<T: Crdt> State<T> {
     }
 
     // used in the `view` fn to do actions
-    pub fn change(&self, change: T::CommitData) -> Message<T> {
+    pub fn commit(&self, change: T::CommitData) -> Message<T> {
         Message::Commit(change)
     }
 
