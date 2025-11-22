@@ -34,7 +34,7 @@ impl ViewCrdt for ViewCounterCrdt {
     fn view(
         &self,
         value: <Self::Crdt as Crdt>::Value,
-    ) -> impl Into<Element<ViewCrdtMessage<Self::Crdt, Self::Message>>> {
+    ) -> impl Into<Element<'_, ViewCrdtMessage<Self::Crdt, Self::Message>>> {
         column![
             button("Increment").on_press(ViewCrdtMessage::Commit(1)),
             text(value).size(50),

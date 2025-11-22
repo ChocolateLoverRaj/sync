@@ -5,17 +5,20 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = {
-    nixpkgs, rust-overlay,
-    flake-utils,
-    ...
-  }:
+  outputs =
+    {
+      nixpkgs,
+      rust-overlay,
+      flake-utils,
+      ...
+    }:
     flake-utils.lib.eachDefaultSystem (
-      system: let
-      overlays = [ (import rust-overlay) ];
-              pkgs = import nixpkgs {
-                inherit system overlays;
-              };
+      system:
+      let
+        overlays = [ (import rust-overlay) ];
+        pkgs = import nixpkgs {
+          inherit system overlays;
+        };
 
         buildInputs = with pkgs; [
           expat
@@ -39,12 +42,12 @@
           pkg-config
           openssl
         ];
-      in {
+      in
+      {
         devShells.default = pkgs.mkShell {
           inherit buildInputs;
 
-          LD_LIBRARY_PATH =
-            builtins.foldl' (a: b: "${a}:${b}/lib") "${pkgs.vulkan-loader}/lib" buildInputs;
+          LD_LIBRARY_PATH = builtins.foldl' (a: b: "${a}:${b}/lib") "${pkgs.vulkan-loader}/lib" buildInputs;
         };
       }
     );

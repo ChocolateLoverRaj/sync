@@ -91,6 +91,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "app"
+version = "0.1.0"
+dependencies = [
+ "flume",
+ "iced",
+ "id_factory",
+ "ron",
+ "serde",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -669,20 +682,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "counter"
-version = "0.1.0"
-dependencies = [
- "flume",
- "flume-overwrite",
- "iced",
- "id_factory",
- "ron",
- "serde",
- "tokio",
- "uuid",
-]
-
-[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1036,15 +1035,6 @@ dependencies = [
  "futures-sink",
  "nanorand",
  "spin",
-]
-
-[[package]]
-name = "flume-overwrite"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5a7f3f1b1a375756d3fdaf12f608b435861f5b15f0247d6185fd70425d693b8"
-dependencies = [
- "flume",
 ]
 
 [[package]]
