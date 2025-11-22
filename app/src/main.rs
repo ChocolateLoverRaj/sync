@@ -2,16 +2,12 @@ use iced::Element;
 use iced::Task;
 use iced::widget::{button, column, scrollable, text};
 
-use crate::commit::*;
 use crate::counter::*;
-use crate::crdt::*;
 use crate::grow_set::*;
 use crate::state::*;
 use crate::view_crdt::*;
 
-mod commit;
 mod counter;
-mod crdt;
 mod file_storage;
 mod grow_set;
 mod state;

@@ -5,17 +5,7 @@ use iced::{
 };
 
 use crate::*;
-
-#[derive(Debug, Clone, Copy)]
-pub struct CounterCrdt;
-impl Crdt for CounterCrdt {
-    type CommitData = i64;
-    type Value = i64;
-
-    fn compute<'a, T: Iterator<Item = &'a Self::CommitData>>(iter: T) -> Self::Value {
-        iter.sum()
-    }
-}
+use crdt::*;
 
 #[derive(Debug, Default, Clone)]
 pub struct ViewCounterCrdt;

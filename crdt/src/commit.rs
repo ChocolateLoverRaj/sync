@@ -1,10 +1,7 @@
 use std::hash::Hash;
 
-use iced::{Element, Renderer, Theme};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-use crate::state::{Message, State};
 
 #[derive(Debug, Hash, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub struct Commit<T> {
@@ -22,5 +19,9 @@ impl<T> Commit<T> {
 
     pub fn data(&self) -> &T {
         &self.data
+    }
+
+    pub fn into_data(self) -> T {
+        self.data
     }
 }

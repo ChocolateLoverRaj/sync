@@ -1,5 +1,6 @@
 use std::{collections::HashSet, mem, ops::Deref, path::PathBuf, sync::Arc};
 
+use crdt::*;
 use iced::{
     Task,
     futures::{FutureExt, StreamExt},
@@ -178,6 +179,7 @@ impl<T: Crdt> State<T> {
             }
             Message::Commit(change) => {
                 self.commits.insert(Commit::new(change));
+                self.commits = T::merge(mem::take(&mut self.commits)).into_iter().collect();
                 self.update_save()
             }
         }

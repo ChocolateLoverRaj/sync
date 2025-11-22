@@ -1,20 +1,10 @@
 use std::collections::HashSet;
 
+use crdt::*;
 use iced::Task;
 use iced::widget::{column, text, text_input};
 
 use crate::*;
-
-#[derive(Debug, Clone, Copy)]
-pub struct GrowSetCrdt;
-impl Crdt for GrowSetCrdt {
-    type CommitData = String;
-    type Value = HashSet<String>;
-
-    fn compute<'a, T: Iterator<Item = &'a Self::CommitData>>(iter: T) -> Self::Value {
-        iter.cloned().collect()
-    }
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct ViewGrowSetCrdt {
