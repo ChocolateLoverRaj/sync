@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
+use std::{fmt::Debug, hash::Hash};
 
 pub trait Crdt: 'static + Clone + Copy {
-    type CommitData: Clone
+    type CommitData: Debug
+        + Clone
         + Hash
         + PartialEq
         + Eq

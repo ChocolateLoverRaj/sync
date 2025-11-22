@@ -1,6 +1,6 @@
 use iced::{
     Alignment::Center,
-    Renderer, Theme,
+    task::Task,
     widget::{button, column, text},
 };
 
@@ -17,14 +17,28 @@ impl Crdt for CounterCrdt {
     }
 }
 
-impl ViewCrdt for CounterCrdt {
-    fn view<'a>(
-        state: &'a State<Self>,
-    ) -> impl Into<iced::Element<'a, Message<Self>, Theme, Renderer>> {
+#[derive(Debug, Default, Clone)]
+pub struct ViewCounterCrdt;
+
+impl ViewCrdt for ViewCounterCrdt {
+    type Crdt = CounterCrdt;
+    type Message = ();
+
+    fn update(
+        &mut self,
+        mesesage: Self::Message,
+    ) -> Task<ViewCrdtMessage<Self::Crdt, Self::Message>> {
+        let _ = mesesage;
+        Task::none()
+    }
+    fn view(
+        &self,
+        value: <Self::Crdt as Crdt>::Value,
+    ) -> impl Into<Element<ViewCrdtMessage<Self::Crdt, Self::Message>>> {
         column![
-            button("Increment").on_press(state.commit(1)),
-            text(state.value()).size(50),
-            button("Decrement").on_press(state.commit(-1))
+            button("Increment").on_press(ViewCrdtMessage::Commit(1)),
+            text(value).size(50),
+            button("Decrement").on_press(ViewCrdtMessage::Commit(-1))
         ]
         .padding(20)
         .align_x(Center)
